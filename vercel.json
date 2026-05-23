@@ -1,11 +1,5 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "framework": "vite",
-  "env": {
-    "DATABASE_URL": "@DATABASE_URL",
-    "JWT_SECRET": "@JWT_SECRET",
-    "EMAIL_USER": "@EMAIL_USER",
-    "EMAIL_PASSWORD": "@EMAIL_PASSWORD"
-  }
+  "framework": "vite"
 }

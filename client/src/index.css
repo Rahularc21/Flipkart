@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #2874F0;
+  --color-action-orange: #FB641B;
+  --color-highlight-yellow: #FFE11B;
+  --color-success-green: #388E3C;
+  --color-light-gray-bg: #F1F3F6;
+  --color-dark-text: #212121;
+  --color-muted-text: #878787;
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* Custom Scrollbar Styles to mimic Flipkart Desktop */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f3f6;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Simple keyframe animations */
+@keyframes strokeDash {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-check {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: strokeDash 0.8s ease-in-out forwards;
+}

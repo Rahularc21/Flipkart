@@ -1,10 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
-import fs from 'fs';
-import path from 'path';
 import { User, Category, Product } from '../models/db.js';
-
-const DATA_DIR = path.join(process.cwd(), '.data');
 
 const CATEGORIES = [
   { name: 'Electronics', slug: 'electronics', image: 'https://picsum.photos/seed/electronics-icon/200/200', level: 0 },
@@ -16,17 +12,6 @@ const CATEGORIES = [
   { name: 'Appliances', slug: 'appliances', image: 'https://picsum.photos/seed/appliances-icon/200/200', level: 0 },
   { name: 'Beauty', slug: 'beauty', image: 'https://picsum.photos/seed/beauty-icon/200/200', level: 0 }
 ];
-
-const BRANDS = {
-  electronics: ['Sony', 'Bose', 'Noise', 'boAt', 'JBL', 'Sennheiser'],
-  mobiles: ['Apple', 'Samsung', 'OnePlus', 'Google', 'Xiaomi', 'Realme'],
-  laptops: ['Apple', 'Dell', 'HP', 'Asus', 'Lenovo', 'Acer'],
-  tvs: ['LG', 'Sony', 'Samsung', 'Mi', 'OnePlus', 'TCL'],
-  fashion: ['Nike', 'Adidas', 'Puma', 'Levis', 'Zara', 'Roadster'],
-  'home-furniture': ['Sleepwell', 'Nilkamal', 'Urban Ladder', 'IKEA', 'Durian'],
-  appliances: ['Whirlpool', 'LG', 'Samsung', 'Godrej', 'Daikin', 'IFB'],
-  beauty: ['Loreal', 'Nivea', 'The Body Shop', 'Maybelline', 'Mamaearth', 'Clinique']
-};
 
 const PRODUCT_TEMPLATES = [
   // 1. ELECTRONICS (8 items)
@@ -111,50 +96,38 @@ const PRODUCT_TEMPLATES = [
 ];
 
 export async function seedDatabase() {
-  console.log('Initiating database purge and seeding cycle...');
+  try {
+    console.log('Starting database seeding...');
 
-  // Reset collections
-  // Note: with StaticMockModel or MongoDB, we should clear the collection cleanly.
-  // StaticMockModel has its collections emptied via writing [].
-  // If useRealMongo is true, we call mongoose methods.
-  if (mongoose.connection && mongoose.connection.readyState === 1) {
-    await mongoose.connection.db.dropDatabase();
-    console.log('MongoDB collections dropped.');
-  } else {
-    // Falls back to direct file reset in JSON store
-    writeLocalCollection('users', []);
-    writeLocalCollection('categories', []);
-    writeLocalCollection('products', []);
-    writeLocalCollection('carts', []);
-    writeLocalCollection('wishlists', []);
-    writeLocalCollection('orders', []);
-    console.log('Fallback Local JSON files reset.');
-  }
+    // Drop existing collections
+    await mongoose.connection.db.dropCollection('users').catch(() => {});
+    await mongoose.connection.db.dropCollection('categories').catch(() => {});
+    await mongoose.connection.db.dropCollection('products').catch(() => {});
+    console.log('✓ Cleared existing data');
 
-  // 1. Seed Categories & Track mapping to ObjectIds
-  const categoryMap = {};
-  for (const catData of CATEGORIES) {
-    const created = await Category.create({
-      name: catData.name,
-      slug: catData.slug,
-      image: catData.image,
-      parentCategory: null,
-      level: catData.level
-    });
-    categoryMap[catData.slug] = created._id;
-  }
-  console.log(`Seeded ${CATEGORIES.length} top-level categories.`);
+    // Seed categories
+    const categoryMap = {};
+    for (const catData of CATEGORIES) {
+      const created = await Category.create({
+        name: catData.name,
+        slug: catData.slug,
+        image: catData.image,
+        parentCategory: null,
+        level: catData.level
+      });
+      categoryMap[catData.slug] = created._id;
+    }
+    console.log(`✓ Seeded ${CATEGORIES.length} categories`);
 
-  // 2. Seed Admin User
-  const salt = await bcrypt.genSalt(10);
-  const adminPassword = await bcrypt.hash('Admin@123', salt);
-  await User.create({
-    name: 'Admin',
-    email: 'admin@flipkart.com',
-    password: adminPassword,
-    role: 'admin',
-    addresses: [
-      {
+    // Seed admin user
+    const salt = await bcrypt.genSalt(10);
+    const adminPassword = await bcrypt.hash('Admin@123', salt);
+    await User.create({
+      name: 'Admin',
+      email: 'admin@flipkart.com',
+      password: adminPassword,
+      role: 'admin',
+      addresses: [{
         fullName: 'Admin Main Office',
         phone: '9876543210',
         pincode: '560001',
@@ -164,19 +137,17 @@ export async function seedDatabase() {
         state: 'Karnataka',
         addressType: 'Work',
         isDefault: true
-      }
-    ]
-  });
+      }]
+    });
 
-  // Seed sample standard user for convenience
-  const userPassword = await bcrypt.hash('User@123', salt);
-  await User.create({
-    name: 'Jane Doe',
-    email: 'user@flipkart.com',
-    password: userPassword,
-    role: 'user',
-    addresses: [
-      {
+    // Seed sample user
+    const userPassword = await bcrypt.hash('User@123', salt);
+    await User.create({
+      name: 'Jane Doe',
+      email: 'user@flipkart.com',
+      password: userPassword,
+      role: 'user',
+      addresses: [{
         fullName: 'Jane Doe',
         phone: '9988776655',
         pincode: '110011',
@@ -186,81 +157,70 @@ export async function seedDatabase() {
         state: 'Delhi',
         addressType: 'Home',
         isDefault: true
-      }
-    ]
-  });
-  console.log('Seeded standard and admin accounts.');
-
-  // 3. Seed 60+ Products with realistic pricing and highlights/specs
-  let productCount = 0;
-  for (const temp of PRODUCT_TEMPLATES) {
-    const productSlug = temp.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    const categoryId = categoryMap[temp.cat];
-
-    const discountPercentage = Math.floor(Math.random() * 21) + 10; // 10% to 30%
-    const mrp = temp.originalPrice;
-    const price = Math.round(mrp - (mrp * discountPercentage) / 100);
-
-    // Create 3 picsum.photos URLs using productSlug
-    const images = [
-      `https://picsum.photos/seed/${productSlug}-1/400/400`,
-      `https://picsum.photos/seed/${productSlug}-2/400/400`,
-      `https://picsum.photos/seed/${productSlug}-3/400/400`
-    ];
-
-    const highlights = [
-      `Genuine product from registered brand ${temp.brand}`,
-      `Includes 1 Year Authorized Domestic Warranty`,
-      `Covered by Flipkart 7-day hassle-free replacement replacement guarantee`,
-      `Check details for bank offers and cashback eligibility`
-    ];
-
-    const specifications = [
-      { section: 'General', name: 'Brand', value: temp.brand },
-      { section: 'General', name: 'Model Name', value: temp.name },
-      { section: 'Technical', name: 'Operational Capacity', value: 'High Efficiency Rated' },
-      { section: 'Technical', name: 'Security Protocol', value: 'Authorized Standards Verified' },
-      { section: 'Dimensions', name: 'Item Weight', value: 'Universal Build Weight' },
-      { section: 'Dimensions', name: 'Package Dimensions', value: 'Standard Protective Packaging Box' }
-    ];
-
-    const ratingsCount = Math.floor(Math.random() * 1000) + 120;
-    const ratingsAverage = Number((4 + Math.random() * 1).toFixed(1)); // 4.0 to 5.0 rating
-
-    const reviews = [
-      { userName: 'Aravind S.', rating: 5, reviewText: 'Fantastic product! Delivered super quickly and original packaging was sealed.', createdAt: new Date() },
-      { userName: 'Pooja Sharma', rating: 4, reviewText: 'Very happy with the build and operations. Highly recommended at this deal price!', createdAt: new Date() },
-      { userName: 'Rohan Gupta', rating: 4, reviewText: 'Excellent experience. Fully satisfied with the Flipkart service as well.', createdAt: new Date() }
-    ];
-
-    await Product.create({
-      title: temp.name,
-      brand: temp.brand,
-      price: price,
-      originalPrice: mrp,
-      discount: discountPercentage,
-      images: images,
-      ratings: {
-        average: ratingsAverage,
-        count: ratingsCount
-      },
-      highlights: highlights,
-      specifications: specifications,
-      category: categoryId,
-      stock: Math.floor(Math.random() * 80) + 20,
-      soldCount: Math.floor(Math.random() * 400) + 50,
-      reviews: reviews
+      }]
     });
+    console.log('✓ Seeded admin and sample user accounts');
 
-    productCount++;
+    // Seed products
+    let productCount = 0;
+    for (const temp of PRODUCT_TEMPLATES) {
+      const productSlug = temp.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const categoryId = categoryMap[temp.cat];
+      const discountPercentage = Math.floor(Math.random() * 21) + 10;
+      const mrp = temp.originalPrice;
+      const price = Math.round(mrp - (mrp * discountPercentage) / 100);
+
+      const images = [
+        `https://picsum.photos/seed/${productSlug}-1/400/400`,
+        `https://picsum.photos/seed/${productSlug}-2/400/400`,
+        `https://picsum.photos/seed/${productSlug}-3/400/400`
+      ];
+
+      const highlights = [
+        `Genuine product from registered brand ${temp.brand}`,
+        `Includes 1 Year Authorized Domestic Warranty`,
+        `Covered by Flipkart 7-day hassle-free replacement guarantee`,
+        `Check details for bank offers and cashback eligibility`
+      ];
+
+      const specifications = [
+        { section: 'General', name: 'Brand', value: temp.brand },
+        { section: 'General', name: 'Model Name', value: temp.name },
+        { section: 'Technical', name: 'Operational Capacity', value: 'High Efficiency Rated' },
+        { section: 'Technical', name: 'Security Protocol', value: 'Authorized Standards Verified' }
+      ];
+
+      const ratingsCount = Math.floor(Math.random() * 1000) + 120;
+      const ratingsAverage = Number((4 + Math.random() * 1).toFixed(1));
+
+      const reviews = [
+        { userName: 'Aravind S.', rating: 5, reviewText: 'Fantastic product! Delivered super quickly and original packaging was sealed.' },
+        { userName: 'Pooja Sharma', rating: 4, reviewText: 'Very happy with the build and operations. Highly recommended at this deal price!' },
+        { userName: 'Rohan Gupta', rating: 4, reviewText: 'Excellent experience. Fully satisfied with the Flipkart service as well.' }
+      ];
+
+      await Product.create({
+        title: temp.name,
+        brand: temp.brand,
+        price,
+        originalPrice: mrp,
+        discount: discountPercentage,
+        images,
+        ratings: { average: ratingsAverage, count: ratingsCount },
+        highlights,
+        specifications,
+        category: categoryId,
+        stock: Math.floor(Math.random() * 80) + 20,
+        soldCount: Math.floor(Math.random() * 400) + 50,
+        reviews
+      });
+      productCount++;
+    }
+    console.log(`✓ Seeded ${productCount} products`);
+    console.log('✓ Database seeding completed successfully!');
+    return productCount;
+  } catch (err) {
+    console.error('✗ Database seeding failed:', err.message);
+    throw err;
   }
-
-  console.log(`Successfully completed seeding database. Seeded: ${productCount} products.`);
-  return productCount;
-}
-
-// Support direct script execution
-function writeLocalCollection(collectionName, data) {
-  const file = path.join(DATA_DIR, `${collectionName}.json`);
-  fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
 }

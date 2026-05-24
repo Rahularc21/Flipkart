@@ -4,6 +4,8 @@ import fs from 'fs';
 import path from 'path';
 import { User, Category, Product } from '../models/db.js';
 
+const DATA_DIR = path.join(process.cwd(), '.data');
+
 const CATEGORIES = [
   { name: 'Electronics', slug: 'electronics', image: 'https://picsum.photos/seed/electronics-icon/200/200', level: 0 },
   { name: 'Mobiles', slug: 'mobiles', image: 'https://picsum.photos/seed/mobiles-icon/200/200', level: 0 },

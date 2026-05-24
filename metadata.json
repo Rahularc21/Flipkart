@@ -1,6 +1,0 @@
-{
-  "name": "Flipkart Clone",
-  "description": "A feature-rich Flipkart clone containing categories, sliders, comprehensive item lists, cart flows, dynamic wishlist, and order history.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

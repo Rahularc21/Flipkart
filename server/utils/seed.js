@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import fs from 'fs';
+import path from 'path';
 import { User, Category, Product } from '../models/db.js';
 
 const CATEGORIES = [
